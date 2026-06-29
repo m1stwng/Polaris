@@ -24,7 +24,7 @@ public class OpenApiConfig {
                 .addSecurityItem(new SecurityRequirement().addList("BearerAuth"))
                 .info(new Info()
                         .title("Polaris API")
-                        .version("0.1.1")
+                        .version("0.2.0")
                         .contact(new Contact()
                                 .name("Brenno \"m1stwng\"")
                                 .email("m1stwng@gmail.com")

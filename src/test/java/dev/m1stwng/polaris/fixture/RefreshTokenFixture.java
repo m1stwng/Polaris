@@ -24,7 +24,7 @@ public class RefreshTokenFixture {
 
         return RefreshToken.builder()
                 .token(TOKEN)
-                .user(user)
+                .userId(USER_ID)
                 .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
                 .build();
     }

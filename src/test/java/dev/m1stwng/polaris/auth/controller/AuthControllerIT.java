@@ -2,6 +2,7 @@ package dev.m1stwng.polaris.auth.controller;
 
 import dev.m1stwng.polaris.AbstractIntegrationTest;
 import dev.m1stwng.polaris.annotation.IntegrationTest;
+import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.fixture.UserFixture;
 import dev.m1stwng.polaris.identity.role.entity.Role;
@@ -38,6 +39,64 @@ public class AuthControllerIT extends AbstractIntegrationTest {
     void beforeEach() {
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    @Nested
+    class LoginEndpoint {
+
+        @Test
+        @DisplayName("Should login a user")
+        void shouldLoginUser() throws Exception {
+            final User user = User.builder()
+                    .email(NORMALIZED_EMAIL)
+                    .password(passwordEncoder.encode(PASSWORD))
+                    .role(Role.ROLE_CUSTOMER)
+                    .build();
+
+            userRepository.save(user);
+
+            final LoginRequest request = new LoginRequest(EMAIL, PASSWORD);
+
+            mockMvc.perform(post("/api/v1/auth/login")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(APPLICATION_JSON))
+                    .andExpect(jsonPath("$.accessToken").exists())
+                    .andExpect(jsonPath("$.accessToken").isString())
+                    .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                    .andExpect(jsonPath("$.refreshToken").exists())
+                    .andExpect(jsonPath("$.refreshToken").isString())
+                    .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+
+            assertEquals(1, refreshTokenRepository.count());
+        }
+
+        @Test
+        @DisplayName("Should return UNAUTHORIZED when credentials are invalid")
+        void shouldReturn401WhenCredentialsAreInvalid() throws Exception {
+            final User user = User.builder()
+                    .email(NORMALIZED_EMAIL)
+                    .password(passwordEncoder.encode(PASSWORD))
+                    .role(Role.ROLE_CUSTOMER)
+                    .build();
+
+            userRepository.save(user);
+
+            final LoginRequest request = new LoginRequest("wrong@email.com", PASSWORD);
+
+            mockMvc.perform(post("/api/v1/auth/login")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.instance").value("/api/v1/auth/login"))
+                    .andExpect(jsonPath("$.title").value("Bad credentials"))
+                    .andExpect(jsonPath("$.detail").value("Email or password is invalid"))
+                    .andExpect(jsonPath("$.status").value("401"));
+
+            assertEquals(0, refreshTokenRepository.count());
+        }
     }
 
     @Nested

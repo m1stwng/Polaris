@@ -1,8 +1,9 @@
 package dev.m1stwng.polaris.token.entity;
 
 import dev.m1stwng.polaris.common.persistence.BaseEntity;
-import dev.m1stwng.polaris.identity.user.entity.User;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,9 +23,8 @@ public class RefreshToken extends BaseEntity {
     @Column(nullable = false, unique = true, updatable = false)
     private UUID token;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @Column(name = "user_id", nullable = false, updatable = false)
+    private UUID userId;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;

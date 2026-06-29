@@ -1,10 +1,12 @@
 package dev.m1stwng.polaris.auth.controller;
 
+import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.auth.dto.response.Tokenization;
 import dev.m1stwng.polaris.auth.service.AuthService;
 import dev.m1stwng.polaris.config.openapi.BadRequestApiResponse;
 import dev.m1stwng.polaris.config.openapi.ConflictApiResponse;
+import dev.m1stwng.polaris.config.openapi.UnauthorizedApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +27,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+
+    @PostMapping("/login")
+    @ApiResponse(responseCode = "200")
+    @BadRequestApiResponse
+    @UnauthorizedApiResponse
+    public ResponseEntity<Tokenization> login(@RequestBody @Valid LoginRequest request) {
+        final Tokenization tokenization = authService.login(request);
+
+        return ResponseEntity.ok(tokenization);
+    }
 
     @PostMapping("/register")
     @ApiResponse(responseCode = "201")
