@@ -4,6 +4,7 @@ import dev.m1stwng.polaris.annotation.UnitTest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.auth.dto.response.Tokenization;
 import dev.m1stwng.polaris.auth.exception.DuplicatedEmailException;
+import dev.m1stwng.polaris.fixture.RefreshTokenFixture;
 import dev.m1stwng.polaris.fixture.UserFixture;
 import dev.m1stwng.polaris.identity.role.entity.Role;
 import dev.m1stwng.polaris.identity.user.entity.User;
@@ -12,6 +13,8 @@ import dev.m1stwng.polaris.identity.user.mapper.UserMapperImpl;
 import dev.m1stwng.polaris.identity.user.repository.UserRepository;
 import dev.m1stwng.polaris.security.entity.SecurityUser;
 import dev.m1stwng.polaris.security.service.JwtService;
+import dev.m1stwng.polaris.token.entity.RefreshToken;
+import dev.m1stwng.polaris.token.service.RefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -21,6 +24,8 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import static dev.m1stwng.polaris.fixture.RefreshTokenFixture.REFRESH_TOKEN_ID;
+import static dev.m1stwng.polaris.fixture.RefreshTokenFixture.TOKEN;
 import static dev.m1stwng.polaris.fixture.UserFixture.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,6 +41,9 @@ public class AuthServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
+    private RefreshTokenService refreshTokenService;
+
+    @Mock
     private UserRepository userRepository;
 
     private AuthService authService;
@@ -47,7 +55,7 @@ public class AuthServiceTest {
     void setUp() {
         final UserMapper userMapper = new UserMapperImpl();
 
-        authService = new AuthService(jwtService, passwordEncoder, userMapper, userRepository);
+        authService = new AuthService(jwtService, passwordEncoder, refreshTokenService, userMapper, userRepository);
     }
 
     @Nested
@@ -62,10 +70,15 @@ public class AuthServiceTest {
 
             createdUser.setId(USER_ID);
 
+            final RefreshToken refreshToken = RefreshTokenFixture.refreshToken();
+
+            refreshToken.setId(REFRESH_TOKEN_ID);
+
             when(userRepository.existsByEmail(NORMALIZED_EMAIL)).thenReturn(false);
             when(passwordEncoder.encode(request.password())).thenReturn(createdUser.getPassword());
             when(userRepository.save(any(User.class))).thenReturn(createdUser);
             when(jwtService.generate(any(SecurityUser.class))).thenReturn(ACCESS_TOKEN);
+            when(refreshTokenService.generate(createdUser)).thenReturn(refreshToken);
 
             final Tokenization result = authService.register(request);
 
@@ -73,17 +86,19 @@ public class AuthServiceTest {
             verify(passwordEncoder).encode(request.password());
             verify(userRepository).save(userCaptor.capture());
             verify(jwtService).generate(any(SecurityUser.class));
+            verify(refreshTokenService).generate(createdUser);
 
             final User userBeforeSaving = userCaptor.getValue();
 
             assertAll(
                     () -> assertEquals(ACCESS_TOKEN, result.accessToken()),
+                    () -> assertEquals(TOKEN, result.refreshToken()),
                     () -> assertEquals(NORMALIZED_EMAIL, userBeforeSaving.getEmail()),
                     () -> assertEquals(request.password(), userBeforeSaving.getPassword()),
                     () -> assertEquals(Role.ROLE_CUSTOMER, userBeforeSaving.getRole())
             );
 
-            verifyNoMoreInteractions(jwtService, passwordEncoder, userRepository);
+            verifyNoMoreInteractions(jwtService, passwordEncoder, refreshTokenService, userRepository);
         }
 
         @Test
@@ -104,7 +119,7 @@ public class AuthServiceTest {
             verify(userRepository, never()).save(any(User.class));
 
             verifyNoMoreInteractions(userRepository);
-            verifyNoInteractions(passwordEncoder, jwtService);
+            verifyNoInteractions(passwordEncoder, jwtService, refreshTokenService);
         }
     }
 }

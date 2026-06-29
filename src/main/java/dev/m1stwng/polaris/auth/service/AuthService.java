@@ -9,6 +9,8 @@ import dev.m1stwng.polaris.identity.user.mapper.UserMapper;
 import dev.m1stwng.polaris.identity.user.repository.UserRepository;
 import dev.m1stwng.polaris.security.entity.SecurityUser;
 import dev.m1stwng.polaris.security.service.JwtService;
+import dev.m1stwng.polaris.token.entity.RefreshToken;
+import dev.m1stwng.polaris.token.service.RefreshTokenService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +24,7 @@ import java.util.Locale;
 public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
     private final UserMapper userMapper;
     private final UserRepository userRepository;
 
@@ -44,7 +47,8 @@ public class AuthService {
         final SecurityUser securityUser = userMapper.userToSecurityUser(createdUser);
 
         final String accessToken = jwtService.generate(securityUser);
+        final RefreshToken refreshToken = refreshTokenService.generate(createdUser);
 
-        return new Tokenization(accessToken);
+        return new Tokenization(accessToken, refreshToken.getToken());
     }
 }

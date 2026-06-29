@@ -7,6 +7,7 @@ import dev.m1stwng.polaris.fixture.UserFixture;
 import dev.m1stwng.polaris.identity.role.entity.Role;
 import dev.m1stwng.polaris.identity.user.entity.User;
 import dev.m1stwng.polaris.identity.user.repository.UserRepository;
+import dev.m1stwng.polaris.token.repository.RefreshTokenRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,10 +29,14 @@ public class AuthControllerIT extends AbstractIntegrationTest {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @BeforeEach
     void beforeEach() {
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
     }
 
@@ -50,7 +55,10 @@ public class AuthControllerIT extends AbstractIntegrationTest {
                     .andExpect(content().contentTypeCompatibleWith(APPLICATION_JSON))
                     .andExpect(jsonPath("$.accessToken").exists())
                     .andExpect(jsonPath("$.accessToken").isString())
-                    .andExpect(jsonPath("$.accessToken").isNotEmpty());
+                    .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                    .andExpect(jsonPath("$.refreshToken").exists())
+                    .andExpect(jsonPath("$.refreshToken").isString())
+                    .andExpect(jsonPath("$.refreshToken").isNotEmpty());
 
             final User user = userRepository.findByEmail(NORMALIZED_EMAIL).orElseThrow();
 
@@ -58,7 +66,8 @@ public class AuthControllerIT extends AbstractIntegrationTest {
                     () -> assertEquals(NORMALIZED_EMAIL, user.getEmail()),
                     () -> assertTrue(passwordEncoder.matches(request.password(), user.getPassword())),
                     () -> assertEquals(Role.ROLE_CUSTOMER, user.getRole()),
-                    () -> assertEquals(1, userRepository.count())
+                    () -> assertEquals(1, userRepository.count()),
+                    () -> assertEquals(1, refreshTokenRepository.count())
             );
         }
 
@@ -81,7 +90,10 @@ public class AuthControllerIT extends AbstractIntegrationTest {
                     .andExpect(jsonPath("$.detail").value("This email is already registered"))
                     .andExpect(jsonPath("$.status").value("409"));
 
-            assertEquals(1, userRepository.count());
+            assertAll(
+                    () -> assertEquals(1, userRepository.count()),
+                    () -> assertEquals(0, refreshTokenRepository.count())
+            );
         }
     }
 }
