@@ -2,11 +2,13 @@ package dev.m1stwng.polaris.auth.service;
 
 import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
 import dev.m1stwng.polaris.auth.dto.request.LogoutRequest;
+import dev.m1stwng.polaris.auth.dto.request.RefreshRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.auth.dto.response.Tokenization;
 import dev.m1stwng.polaris.auth.exception.DuplicatedEmailException;
 import dev.m1stwng.polaris.identity.role.entity.Role;
 import dev.m1stwng.polaris.identity.user.entity.User;
+import dev.m1stwng.polaris.identity.user.exception.UserNotFoundException;
 import dev.m1stwng.polaris.identity.user.mapper.UserMapper;
 import dev.m1stwng.polaris.identity.user.repository.UserRepository;
 import dev.m1stwng.polaris.security.entity.SecurityUser;
@@ -72,6 +74,24 @@ public class AuthService {
         final RefreshToken refreshToken = refreshTokenService.generate(securityUser);
 
         return new Tokenization(accessToken, refreshToken.getToken());
+    }
+
+    public Tokenization refresh(RefreshRequest request) {
+        final RefreshToken refreshToken = refreshTokenService.validate(request.refreshToken());
+
+        final User user = userRepository.findById(refreshToken.getUserId())
+                .orElseThrow(() -> new UserNotFoundException(
+                        "User with id %s was not found".formatted(refreshToken.getUserId()))
+                );
+
+        final SecurityUser securityUser = userMapper.userToSecurityUser(user);
+
+        final String accessToken = jwtService.generate(securityUser);
+        final RefreshToken newRefreshToken = refreshTokenService.generate(securityUser);
+
+        refreshTokenService.revoke(refreshToken.getToken());
+
+        return new Tokenization(accessToken, newRefreshToken.getToken());
     }
 
     public void logout(LogoutRequest request) {

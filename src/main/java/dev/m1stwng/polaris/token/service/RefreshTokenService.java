@@ -2,6 +2,7 @@ package dev.m1stwng.polaris.token.service;
 
 import dev.m1stwng.polaris.security.entity.SecurityUser;
 import dev.m1stwng.polaris.token.entity.RefreshToken;
+import dev.m1stwng.polaris.token.exception.InvalidRefreshTokenException;
 import dev.m1stwng.polaris.token.exception.RefreshTokenNotFoundException;
 import dev.m1stwng.polaris.token.repository.RefreshTokenRepository;
 import jakarta.transaction.Transactional;
@@ -31,6 +32,27 @@ public class RefreshTokenService {
                 .build();
 
         return refreshTokenRepository.save(refreshToken);
+    }
+
+    public RefreshToken validate(UUID token) {
+        final RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
+                .orElseThrow(() -> new RefreshTokenNotFoundException(
+                        "Refresh token with token %s was not found".formatted(String.valueOf(token)))
+                );
+
+        if (refreshToken.getRevokedAt() != null) {
+            throw new InvalidRefreshTokenException(
+                    "Refresh token with token %s was already revoked".formatted(String.valueOf(token))
+            );
+        }
+
+        if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
+            throw new InvalidRefreshTokenException(
+                    "Refresh token with token %s has already expired".formatted(String.valueOf(token))
+            );
+        }
+
+        return refreshToken;
     }
 
     public void revoke(UUID token) {

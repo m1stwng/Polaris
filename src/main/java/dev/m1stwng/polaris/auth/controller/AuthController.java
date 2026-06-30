@@ -2,6 +2,7 @@ package dev.m1stwng.polaris.auth.controller;
 
 import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
 import dev.m1stwng.polaris.auth.dto.request.LogoutRequest;
+import dev.m1stwng.polaris.auth.dto.request.RefreshRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.auth.dto.response.Tokenization;
 import dev.m1stwng.polaris.auth.service.AuthService;
@@ -48,6 +49,15 @@ public class AuthController {
         final Tokenization tokenization = authService.register(request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(tokenization);
+    }
+
+    @PostMapping("/refresh")
+    @ApiResponse(responseCode = "200")
+    @NotFoundApiResponse
+    public ResponseEntity<Tokenization> refresh(@RequestBody RefreshRequest request) {
+        final Tokenization tokenization = authService.refresh(request);
+
+        return ResponseEntity.ok(tokenization);
     }
 
     @PostMapping("/logout")
