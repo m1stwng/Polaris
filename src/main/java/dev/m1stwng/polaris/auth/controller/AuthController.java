@@ -1,11 +1,13 @@
 package dev.m1stwng.polaris.auth.controller;
 
 import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
+import dev.m1stwng.polaris.auth.dto.request.LogoutRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.auth.dto.response.Tokenization;
 import dev.m1stwng.polaris.auth.service.AuthService;
 import dev.m1stwng.polaris.config.openapi.BadRequestApiResponse;
 import dev.m1stwng.polaris.config.openapi.ConflictApiResponse;
+import dev.m1stwng.polaris.config.openapi.NotFoundApiResponse;
 import dev.m1stwng.polaris.config.openapi.UnauthorizedApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -46,5 +48,14 @@ public class AuthController {
         final Tokenization tokenization = authService.register(request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(tokenization);
+    }
+
+    @PostMapping("/logout")
+    @ApiResponse(responseCode = "204")
+    @NotFoundApiResponse
+    public ResponseEntity<Void> logout(@RequestBody LogoutRequest request) {
+        authService.logout(request);
+
+        return ResponseEntity.noContent().build();
     }
 }

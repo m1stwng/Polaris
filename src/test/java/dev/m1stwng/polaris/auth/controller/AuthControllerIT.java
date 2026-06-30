@@ -3,11 +3,14 @@ package dev.m1stwng.polaris.auth.controller;
 import dev.m1stwng.polaris.AbstractIntegrationTest;
 import dev.m1stwng.polaris.annotation.IntegrationTest;
 import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
+import dev.m1stwng.polaris.auth.dto.request.LogoutRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
+import dev.m1stwng.polaris.fixture.RefreshTokenFixture;
 import dev.m1stwng.polaris.fixture.UserFixture;
 import dev.m1stwng.polaris.identity.role.entity.Role;
 import dev.m1stwng.polaris.identity.user.entity.User;
 import dev.m1stwng.polaris.identity.user.repository.UserRepository;
+import dev.m1stwng.polaris.token.entity.RefreshToken;
 import dev.m1stwng.polaris.token.repository.RefreshTokenRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import static dev.m1stwng.polaris.fixture.RefreshTokenFixture.TOKEN;
 import static dev.m1stwng.polaris.fixture.UserFixture.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -153,6 +157,47 @@ public class AuthControllerIT extends AbstractIntegrationTest {
                     () -> assertEquals(1, userRepository.count()),
                     () -> assertEquals(0, refreshTokenRepository.count())
             );
+        }
+    }
+
+    @Nested
+    class LogoutEndpoint {
+
+        @Test
+        @DisplayName("Should logout a user")
+        void shouldLogoutUser() throws Exception {
+            final LogoutRequest request = new LogoutRequest(TOKEN);
+
+            final User user = userRepository.save(UserFixture.customer());
+            final RefreshToken refreshToken = RefreshTokenFixture.refreshToken();
+
+            refreshToken.setUserId(user.getId());
+
+            refreshTokenRepository.save(refreshToken);
+
+            mockMvc.perform(post("/api/v1/auth/logout")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isNoContent());
+
+            final RefreshToken revokedRefreshToken = refreshTokenRepository.findByToken(TOKEN).orElseThrow();
+
+            assertNotNull(revokedRefreshToken.getRevokedAt());
+        }
+
+        @Test
+        @DisplayName("Should return NOT FOUND when refresh token was not found")
+        void shouldReturn404WhenRefreshTokenNotFound() throws Exception {
+            final LogoutRequest request = new LogoutRequest(TOKEN);
+
+            mockMvc.perform(post("/api/v1/auth/logout")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isNotFound())
+                    .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.instance").value("/api/v1/auth/logout"))
+                    .andExpect(jsonPath("$.title").value("Refresh token not found"))
+                    .andExpect(jsonPath("$.status").value("404"));
         }
     }
 }

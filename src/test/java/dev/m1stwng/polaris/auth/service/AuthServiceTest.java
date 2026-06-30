@@ -2,6 +2,7 @@ package dev.m1stwng.polaris.auth.service;
 
 import dev.m1stwng.polaris.annotation.UnitTest;
 import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
+import dev.m1stwng.polaris.auth.dto.request.LogoutRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.auth.dto.response.Tokenization;
 import dev.m1stwng.polaris.auth.exception.DuplicatedEmailException;
@@ -195,6 +196,20 @@ public class AuthServiceTest {
 
             verifyNoMoreInteractions(userRepository);
             verifyNoInteractions(passwordEncoder, jwtService, refreshTokenService);
+        }
+    }
+
+    @Nested
+    class Logout {
+
+        @Test
+        @DisplayName("Should logout a user")
+        void shouldLogoutUser() {
+            final LogoutRequest request = new LogoutRequest(TOKEN);
+
+            authService.logout(request);
+
+            verify(refreshTokenService).revoke(TOKEN);
         }
     }
 }

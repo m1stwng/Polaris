@@ -1,6 +1,7 @@
 package dev.m1stwng.polaris.auth.service;
 
 import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
+import dev.m1stwng.polaris.auth.dto.request.LogoutRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.auth.dto.response.Tokenization;
 import dev.m1stwng.polaris.auth.exception.DuplicatedEmailException;
@@ -71,5 +72,9 @@ public class AuthService {
         final RefreshToken refreshToken = refreshTokenService.generate(securityUser);
 
         return new Tokenization(accessToken, refreshToken.getToken());
+    }
+
+    public void logout(LogoutRequest request) {
+        refreshTokenService.revoke(request.refreshToken());
     }
 }

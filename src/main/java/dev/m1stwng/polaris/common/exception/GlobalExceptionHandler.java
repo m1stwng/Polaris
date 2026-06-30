@@ -2,6 +2,7 @@ package dev.m1stwng.polaris.common.exception;
 
 import dev.m1stwng.polaris.auth.exception.DuplicatedEmailException;
 import dev.m1stwng.polaris.identity.user.exception.UserNotFoundException;
+import dev.m1stwng.polaris.token.exception.RefreshTokenNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -55,6 +56,15 @@ public class GlobalExceptionHandler {
         problemDetail.setProperty("errors", errors);
 
         return ResponseEntity.badRequest().body(problemDetail);
+    }
+
+    @ExceptionHandler(RefreshTokenNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleRefreshTokenNotFoundException() {
+        final ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+
+        problemDetail.setTitle("Refresh token not found");
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
