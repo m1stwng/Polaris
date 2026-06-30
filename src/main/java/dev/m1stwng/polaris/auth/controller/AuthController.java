@@ -53,8 +53,10 @@ public class AuthController {
 
     @PostMapping("/refresh")
     @ApiResponse(responseCode = "200")
+    @BadRequestApiResponse
+    @UnauthorizedApiResponse
     @NotFoundApiResponse
-    public ResponseEntity<Tokenization> refresh(@RequestBody RefreshRequest request) {
+    public ResponseEntity<Tokenization> refresh(@RequestBody @Valid RefreshRequest request) {
         final Tokenization tokenization = authService.refresh(request);
 
         return ResponseEntity.ok(tokenization);
@@ -62,8 +64,8 @@ public class AuthController {
 
     @PostMapping("/logout")
     @ApiResponse(responseCode = "204")
-    @NotFoundApiResponse
-    public ResponseEntity<Void> logout(@RequestBody LogoutRequest request) {
+    @BadRequestApiResponse
+    public ResponseEntity<Void> logout(@RequestBody @Valid LogoutRequest request) {
         authService.logout(request);
 
         return ResponseEntity.noContent().build();

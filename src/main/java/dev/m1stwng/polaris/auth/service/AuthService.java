@@ -6,6 +6,7 @@ import dev.m1stwng.polaris.auth.dto.request.RefreshRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
 import dev.m1stwng.polaris.auth.dto.response.Tokenization;
 import dev.m1stwng.polaris.auth.exception.DuplicatedEmailException;
+import dev.m1stwng.polaris.common.normalization.EmailNormalizer;
 import dev.m1stwng.polaris.identity.role.entity.Role;
 import dev.m1stwng.polaris.identity.user.entity.User;
 import dev.m1stwng.polaris.identity.user.exception.UserNotFoundException;
@@ -23,14 +24,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AuthService {
     private final AuthenticationManager authenticationManager;
+    private final EmailNormalizer emailNormalizer;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
@@ -38,31 +40,32 @@ public class AuthService {
     private final UserRepository userRepository;
 
     public Tokenization login(LoginRequest request) {
-        final String normalizedEmail = request.email().trim().toLowerCase(Locale.ROOT);
-
         final Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(normalizedEmail, request.password())
+                new UsernamePasswordAuthenticationToken(
+                        emailNormalizer.normalize(request.email()),
+                        request.password()
+                )
         );
 
         final SecurityUser securityUser = Objects.requireNonNull((SecurityUser) auth.getPrincipal());
 
         final String accessToken = jwtService.generate(securityUser);
-        final RefreshToken refreshToken = refreshTokenService.generate(securityUser);
+        final RefreshToken refreshToken = refreshTokenService.generate(securityUser.id());
 
         return new Tokenization(accessToken, refreshToken.getToken());
     }
 
     public Tokenization register(RegisterRequest request) {
-        final String normalizedEmail = request.email().trim().toLowerCase(Locale.ROOT);
+        final String email = emailNormalizer.normalize(request.email());
 
-        final boolean exists = userRepository.existsByEmail(normalizedEmail);
+        final boolean exists = userRepository.existsByEmail(email);
 
         if (exists) {
-            throw new DuplicatedEmailException("Email %s is already registered".formatted(normalizedEmail));
+            throw new DuplicatedEmailException("Email %s is already registered".formatted(email));
         }
 
         final User user = User.builder()
-                .email(normalizedEmail)
+                .email(email)
                 .password(passwordEncoder.encode(request.password()))
                 .role(Role.ROLE_CUSTOMER)
                 .build();
@@ -71,30 +74,24 @@ public class AuthService {
         final SecurityUser securityUser = userMapper.userToSecurityUser(createdUser);
 
         final String accessToken = jwtService.generate(securityUser);
-        final RefreshToken refreshToken = refreshTokenService.generate(securityUser);
+        final RefreshToken refreshToken = refreshTokenService.generate(securityUser.id());
 
         return new Tokenization(accessToken, refreshToken.getToken());
     }
 
     public Tokenization refresh(RefreshRequest request) {
-        final RefreshToken refreshToken = refreshTokenService.validate(request.refreshToken());
-
-        final User user = userRepository.findById(refreshToken.getUserId())
-                .orElseThrow(() -> new UserNotFoundException(
-                        "User with id %s was not found".formatted(refreshToken.getUserId()))
-                );
-
+        final UUID userId = refreshTokenService.validateAndRevoke(request.refreshToken());
+        final User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User with id %s was not found".formatted(userId)));
         final SecurityUser securityUser = userMapper.userToSecurityUser(user);
 
         final String accessToken = jwtService.generate(securityUser);
-        final RefreshToken newRefreshToken = refreshTokenService.generate(securityUser);
+        final RefreshToken refreshToken = refreshTokenService.generate(securityUser.id());
 
-        refreshTokenService.revoke(refreshToken.getToken());
-
-        return new Tokenization(accessToken, newRefreshToken.getToken());
+        return new Tokenization(accessToken, refreshToken.getToken());
     }
 
     public void logout(LogoutRequest request) {
-        refreshTokenService.revoke(request.refreshToken());
+        refreshTokenService.revokeIfPresent(request.refreshToken());
     }
 }

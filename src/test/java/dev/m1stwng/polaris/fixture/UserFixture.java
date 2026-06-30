@@ -10,16 +10,15 @@ public class UserFixture {
     private UserFixture() {
     }
 
-    public static final String ACCESS_TOKEN = "access-token";
-    public static final String EMAIL = "customer@example.com";
-    public static final String NORMALIZED_EMAIL = "customer@example.com";
-    public static final String PASSWORD = "password123";
     public static final UUID USER_ID = UUID.fromString("1d59ed60-36b1-401c-ae7c-d7018e87a82c");
+    public static final String EMAIL = "john@example.com";
+    public static final String PASSWORD = "password123";
+    public static final String ENCODED_PASSWORD = "encoded-password";
 
     public static User customer() {
         return User.builder()
                 .email(EMAIL)
-                .password(PASSWORD)
+                .password(ENCODED_PASSWORD)
                 .role(Role.ROLE_CUSTOMER)
                 .build();
     }

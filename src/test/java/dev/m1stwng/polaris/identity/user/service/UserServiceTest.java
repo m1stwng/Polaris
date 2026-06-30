@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import static dev.m1stwng.polaris.fixture.UserFixture.EMAIL;
 import static dev.m1stwng.polaris.fixture.UserFixture.USER_ID;
@@ -47,7 +46,6 @@ public class UserServiceTest {
         @DisplayName("Should return a user")
         void shouldReturnUser() {
             final User user = UserFixture.customer();
-
             user.setId(USER_ID);
 
             final SecurityUser securityUser = SecurityUserFixture.customer();
@@ -71,7 +69,7 @@ public class UserServiceTest {
         void shouldThrowWhenUserNotFound() {
             final SecurityUser securityUser = SecurityUserFixture.customer();
 
-            when(userRepository.findById(any(UUID.class))).thenReturn(Optional.empty());
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
             final UserNotFoundException ex = assertThrows(
                     UserNotFoundException.class,

@@ -1,9 +1,7 @@
 package dev.m1stwng.polaris.token.service;
 
-import dev.m1stwng.polaris.security.entity.SecurityUser;
 import dev.m1stwng.polaris.token.entity.RefreshToken;
 import dev.m1stwng.polaris.token.exception.InvalidRefreshTokenException;
-import dev.m1stwng.polaris.token.exception.RefreshTokenNotFoundException;
 import dev.m1stwng.polaris.token.repository.RefreshTokenRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -24,49 +22,48 @@ public class RefreshTokenService {
     @Value("${refresh-token.expiration-days}")
     private Long REFRESH_TOKEN_EXPIRATION_DAYS;
 
-    public RefreshToken generate(SecurityUser securityUser) {
+    public RefreshToken generate(UUID userId) {
         final RefreshToken refreshToken = RefreshToken.builder()
                 .token(UUID.randomUUID())
-                .userId(securityUser.id())
+                .userId(userId)
                 .expiresAt(Instant.now().plus(REFRESH_TOKEN_EXPIRATION_DAYS, ChronoUnit.DAYS))
                 .build();
 
         return refreshTokenRepository.save(refreshToken);
     }
 
-    public RefreshToken validate(UUID token) {
+    public UUID validateAndRevoke(UUID token) {
         final RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
-                .orElseThrow(() -> new RefreshTokenNotFoundException(
-                        "Refresh token with token %s was not found".formatted(String.valueOf(token)))
+                .orElseThrow(() -> new InvalidRefreshTokenException(
+                        "Refresh refreshToken with refreshToken %s was not found".formatted(token))
                 );
 
         if (refreshToken.getRevokedAt() != null) {
             throw new InvalidRefreshTokenException(
-                    "Refresh token with token %s was already revoked".formatted(String.valueOf(token))
+                    "Refresh refreshToken with refreshToken %s was already revoked".formatted(token)
             );
         }
 
         if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
             throw new InvalidRefreshTokenException(
-                    "Refresh token with token %s has already expired".formatted(String.valueOf(token))
+                    "Refresh refreshToken with refreshToken %s has already expired".formatted(token)
             );
-        }
-
-        return refreshToken;
-    }
-
-    public void revoke(UUID token) {
-        final RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
-                .orElseThrow(() -> new RefreshTokenNotFoundException(
-                        "Refresh token with token %s was not found".formatted(String.valueOf(token)))
-                );
-
-        if (refreshToken.getRevokedAt() != null) {
-            return;
         }
 
         refreshToken.setRevokedAt(Instant.now());
 
         refreshTokenRepository.save(refreshToken);
+
+        return refreshToken.getUserId();
+    }
+
+    public void revokeIfPresent(UUID token) {
+        refreshTokenRepository.findByToken(token)
+                .ifPresent(refreshToken -> {
+                    if (refreshToken.getRevokedAt() == null) {
+                        refreshToken.setRevokedAt(Instant.now());
+                        refreshTokenRepository.save(refreshToken);
+                    }
+                });
     }
 }

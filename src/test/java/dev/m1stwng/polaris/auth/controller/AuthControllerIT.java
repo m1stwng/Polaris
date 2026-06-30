@@ -4,9 +4,8 @@ import dev.m1stwng.polaris.AbstractIntegrationTest;
 import dev.m1stwng.polaris.annotation.IntegrationTest;
 import dev.m1stwng.polaris.auth.dto.request.LoginRequest;
 import dev.m1stwng.polaris.auth.dto.request.LogoutRequest;
+import dev.m1stwng.polaris.auth.dto.request.RefreshRequest;
 import dev.m1stwng.polaris.auth.dto.request.RegisterRequest;
-import dev.m1stwng.polaris.fixture.RefreshTokenFixture;
-import dev.m1stwng.polaris.fixture.UserFixture;
 import dev.m1stwng.polaris.identity.role.entity.Role;
 import dev.m1stwng.polaris.identity.user.entity.User;
 import dev.m1stwng.polaris.identity.user.repository.UserRepository;
@@ -19,8 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 import static dev.m1stwng.polaris.fixture.RefreshTokenFixture.TOKEN;
-import static dev.m1stwng.polaris.fixture.UserFixture.*;
+import static dev.m1stwng.polaris.fixture.UserFixture.EMAIL;
+import static dev.m1stwng.polaris.fixture.UserFixture.PASSWORD;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON;
@@ -52,7 +55,7 @@ public class AuthControllerIT extends AbstractIntegrationTest {
         @DisplayName("Should login a user")
         void shouldLoginUser() throws Exception {
             final User user = User.builder()
-                    .email(NORMALIZED_EMAIL)
+                    .email(EMAIL)
                     .password(passwordEncoder.encode(PASSWORD))
                     .role(Role.ROLE_CUSTOMER)
                     .build();
@@ -80,7 +83,7 @@ public class AuthControllerIT extends AbstractIntegrationTest {
         @DisplayName("Should return UNAUTHORIZED when credentials are invalid")
         void shouldReturn401WhenCredentialsAreInvalid() throws Exception {
             final User user = User.builder()
-                    .email(NORMALIZED_EMAIL)
+                    .email(EMAIL)
                     .password(passwordEncoder.encode(PASSWORD))
                     .role(Role.ROLE_CUSTOMER)
                     .build();
@@ -123,10 +126,10 @@ public class AuthControllerIT extends AbstractIntegrationTest {
                     .andExpect(jsonPath("$.refreshToken").isString())
                     .andExpect(jsonPath("$.refreshToken").isNotEmpty());
 
-            final User user = userRepository.findByEmail(NORMALIZED_EMAIL).orElseThrow();
+            final User user = userRepository.findByEmail(EMAIL).orElseThrow();
 
             assertAll(
-                    () -> assertEquals(NORMALIZED_EMAIL, user.getEmail()),
+                    () -> assertEquals(EMAIL, user.getEmail()),
                     () -> assertTrue(passwordEncoder.matches(request.password(), user.getPassword())),
                     () -> assertEquals(Role.ROLE_CUSTOMER, user.getRole()),
                     () -> assertEquals(1, userRepository.count()),
@@ -139,7 +142,11 @@ public class AuthControllerIT extends AbstractIntegrationTest {
         void shouldReturn409WhenEmailAlreadyExists() throws Exception {
             final RegisterRequest request = new RegisterRequest(EMAIL, PASSWORD);
 
-            final User user = UserFixture.customer();
+            final User user = User.builder()
+                    .email(EMAIL)
+                    .password(passwordEncoder.encode(PASSWORD))
+                    .role(Role.ROLE_CUSTOMER)
+                    .build();
 
             userRepository.save(user);
 
@@ -161,6 +168,63 @@ public class AuthControllerIT extends AbstractIntegrationTest {
     }
 
     @Nested
+    class RefreshEndpoint {
+
+        @Test
+        @DisplayName("Should refresh a token")
+        void shouldRefreshToken() throws Exception {
+            final RefreshRequest request = new RefreshRequest(TOKEN);
+
+            final User user = userRepository.save(User.builder()
+                    .email(EMAIL)
+                    .password(passwordEncoder.encode(PASSWORD))
+                    .role(Role.ROLE_CUSTOMER)
+                    .build()
+            );
+
+            final RefreshToken refreshToken = refreshTokenRepository.save(RefreshToken.builder()
+                    .token(TOKEN)
+                    .userId(user.getId())
+                    .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
+                    .build()
+            );
+
+            userRepository.save(user);
+            refreshTokenRepository.save(refreshToken);
+
+            mockMvc.perform(post("/api/v1/auth/refresh")
+                    .contentType(APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(APPLICATION_JSON))
+                    .andExpect(jsonPath("$.accessToken").exists())
+                    .andExpect(jsonPath("$.accessToken").isString())
+                    .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                    .andExpect(jsonPath("$.refreshToken").exists())
+                    .andExpect(jsonPath("$.refreshToken").isString())
+                    .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+
+            assertEquals(2, refreshTokenRepository.count());
+        }
+
+        @Test
+        @DisplayName("Should return UNAUTHORIZED when token does not exist")
+        void shouldReturn401WhenTokenDoesNotExist() throws Exception {
+            final RefreshRequest request = new RefreshRequest(TOKEN);
+
+            mockMvc.perform(post("/api/v1/auth/refresh")
+                            .contentType(APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.instance").value("/api/v1/auth/refresh"))
+                    .andExpect(jsonPath("$.title").value("Invalid refresh token"))
+                    .andExpect(jsonPath("$.detail").value("Refresh token is invalid, expired or not found"))
+                    .andExpect(jsonPath("$.status").value("401"));
+        }
+    }
+
+    @Nested
     class LogoutEndpoint {
 
         @Test
@@ -168,36 +232,28 @@ public class AuthControllerIT extends AbstractIntegrationTest {
         void shouldLogoutUser() throws Exception {
             final LogoutRequest request = new LogoutRequest(TOKEN);
 
-            final User user = userRepository.save(UserFixture.customer());
-            final RefreshToken refreshToken = RefreshTokenFixture.refreshToken();
+            final User user = userRepository.save(User.builder()
+                    .email(EMAIL)
+                    .password(passwordEncoder.encode(PASSWORD))
+                    .role(Role.ROLE_CUSTOMER)
+                    .build()
+            );
 
-            refreshToken.setUserId(user.getId());
-
-            refreshTokenRepository.save(refreshToken);
+            refreshTokenRepository.save(RefreshToken.builder()
+                    .token(TOKEN)
+                    .userId(user.getId())
+                    .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
+                    .build()
+            );
 
             mockMvc.perform(post("/api/v1/auth/logout")
                             .contentType(APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isNoContent());
 
-            final RefreshToken revokedRefreshToken = refreshTokenRepository.findByToken(TOKEN).orElseThrow();
+            final RefreshToken refreshToken = refreshTokenRepository.findByToken(TOKEN).orElseThrow();
 
-            assertNotNull(revokedRefreshToken.getRevokedAt());
-        }
-
-        @Test
-        @DisplayName("Should return NOT FOUND when refresh token was not found")
-        void shouldReturn404WhenRefreshTokenNotFound() throws Exception {
-            final LogoutRequest request = new LogoutRequest(TOKEN);
-
-            mockMvc.perform(post("/api/v1/auth/logout")
-                            .contentType(APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isNotFound())
-                    .andExpect(content().contentTypeCompatibleWith(APPLICATION_PROBLEM_JSON))
-                    .andExpect(jsonPath("$.instance").value("/api/v1/auth/logout"))
-                    .andExpect(jsonPath("$.title").value("Refresh token not found"))
-                    .andExpect(jsonPath("$.status").value("404"));
+            assertNotNull(refreshToken.getRevokedAt());
         }
     }
 }

@@ -36,7 +36,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         problemDetail.setInstance(URI.create(request.getRequestURI()));
 
         if (authException instanceof JwtException) {
-            problemDetail.setDetail("Invalid JWT token");
+            problemDetail.setDetail("Invalid JWT refreshToken");
         } else {
             problemDetail.setDetail("Authentication required");
         }

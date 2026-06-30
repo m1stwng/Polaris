@@ -41,9 +41,7 @@ public class UserControllerIT extends AbstractIntegrationTest {
         @Test
         @DisplayName("Should return the authenticated user")
         void shouldReturnAuthenticatedUser() throws Exception {
-            User user = UserFixture.customer();
-
-            user = userRepository.save(user);
+            final User user = userRepository.save(UserFixture.customer());
 
             final SecurityUser securityUser = new SecurityUser(
                     user.getId(),

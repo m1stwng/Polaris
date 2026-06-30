@@ -2,7 +2,7 @@ package dev.m1stwng.polaris.common.exception;
 
 import dev.m1stwng.polaris.auth.exception.DuplicatedEmailException;
 import dev.m1stwng.polaris.identity.user.exception.UserNotFoundException;
-import dev.m1stwng.polaris.token.exception.RefreshTokenNotFoundException;
+import dev.m1stwng.polaris.token.exception.InvalidRefreshTokenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -58,13 +58,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(problemDetail);
     }
 
-    @ExceptionHandler(RefreshTokenNotFoundException.class)
+    @ExceptionHandler(InvalidRefreshTokenException.class)
     public ResponseEntity<ProblemDetail> handleRefreshTokenNotFoundException() {
-        final ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        final ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
 
-        problemDetail.setTitle("Refresh token not found");
+        problemDetail.setTitle("Invalid refresh token");
+        problemDetail.setDetail("Refresh token is invalid, expired or not found");
 
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problemDetail);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
