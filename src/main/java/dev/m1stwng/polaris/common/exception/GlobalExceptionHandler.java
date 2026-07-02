@@ -1,6 +1,8 @@
 package dev.m1stwng.polaris.common.exception;
 
 import dev.m1stwng.polaris.auth.exception.DuplicatedEmailException;
+import dev.m1stwng.polaris.customer.exception.CustomerAlreadyExistsException;
+import dev.m1stwng.polaris.customer.exception.CustomerNotFoundException;
 import dev.m1stwng.polaris.identity.user.exception.UserNotFoundException;
 import dev.m1stwng.polaris.token.exception.InvalidRefreshTokenException;
 import org.springframework.http.HttpStatus;
@@ -27,6 +29,25 @@ public class GlobalExceptionHandler {
         problemDetail.setDetail("Email or password is invalid");
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problemDetail);
+    }
+
+    @ExceptionHandler(CustomerAlreadyExistsException.class)
+    public ResponseEntity<ProblemDetail> handleCustomerAlreadyExistsException() {
+        final ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+
+        problemDetail.setTitle("Customer already exists");
+        problemDetail.setDetail("This user already have a customer");
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
+    }
+
+    @ExceptionHandler(CustomerNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleCustomerNotFoundException() {
+        final ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+
+        problemDetail.setTitle("Customer was not found");
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
     }
 
     @ExceptionHandler(DuplicatedEmailException.class)
